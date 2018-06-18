@@ -56,7 +56,7 @@ resource "openstack_compute_instance_v2" "compute" {
         inline = [
           "sudo bash /tmp/stage/set_hosts.sh",
           "echo '----> Joining K8s Controller with'",
-          "echo sudo kubeadm join --token ${var.kubernetes_token} --discovery-token-unsafe-skip-ca-verification ${openstack_compute_instance_v2.controller.0.network.0.fixed_ip_v4}:6443"
+          "echo sudo kubeadm join --token ${var.kubernetes_token} --discovery-token-unsafe-skip-ca-verification ${openstack_compute_instance_v2.controller.0.network.0.fixed_ip_v4}:6443",
           "sudo kubeadm join --token ${var.kubernetes_token} --discovery-token-unsafe-skip-ca-verification ${openstack_compute_instance_v2.controller.0.network.0.fixed_ip_v4}:6443",
           "sudo rm -rf /tmp/stage"
         ]

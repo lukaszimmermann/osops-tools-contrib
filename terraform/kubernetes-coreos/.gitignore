@@ -4,3 +4,4 @@ templates/discovery_url
 *.override
 ssl/admin*
 ssl/ca*
+.terraform
