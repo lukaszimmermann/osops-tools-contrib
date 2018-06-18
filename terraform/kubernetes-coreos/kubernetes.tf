@@ -13,7 +13,7 @@ resource "openstack_compute_instance_v2" "controller" {
     ]
     connection {
        user = "ubuntu"
-       private_key = "file("/home/ubuntu/.ssh/k8s.pem")" 
+       private_key = "${file("/home/ubuntu/.ssh/k8s.pem")}" 
     }
     provisioner "file" {
         source = "files"
@@ -46,7 +46,7 @@ resource "openstack_compute_instance_v2" "compute" {
     ]
     connection {
        user = "ubuntu"
-       private_key = "file("/home/ubuntu/.ssh/k8s.pem")" 
+       private_key = "${file("/home/ubuntu/.ssh/k8s.pem")}" 
     }
     provisioner "file" {
         source = "files"
