@@ -1,94 +1,68 @@
-resource "openstack_networking_floatingip_v2" "controller" {
-  count = "1"
-  pool = "${var.floatingip_pool}"
-}
-
-#resource "openstack_networking_floatingip_v2" "compute" {
-#  count = "${var.compute_count}"
-#  pool = "${var.floatingip_pool}"
-#}
-
-resource "openstack_compute_keypair_v2" "kubernetes" {
-  name = "${var.project}"
-  public_key = "${file(var.public_key_path)}"
-}
-
 resource "openstack_compute_instance_v2" "controller" {
-    name = "${var.cluster_name}-controller${count.index}"
+    name = "${var.cluster_name}-controller-${count.index}"
     count = "1"
-    image_name = "${var.kubernetes_image}"
-    flavor_name = "${var.kubernetes_flavor}"
-    key_pair = "${openstack_compute_keypair_v2.kubernetes.name}"
+    image_name = "${var.kubernetes_image_name}"
+    flavor_id = "${var.kubernetes_flavor_id}"
+    key_pair = "k8s"
     network {
-        name = "${var.network_name}"
+        uuid = "c8f3016f-c451-4aaa-915b-6704d2a6a97e"
     }
     security_groups = [
-        "${openstack_compute_secgroup_v2.kubernetes_base.name}",
-        "${openstack_compute_secgroup_v2.kubernetes_controller.name}"
+        "default",
+        "k8s"
     ]
-    floating_ip = "${element(openstack_networking_floatingip_v2.controller.*.address, count.index)}"
-    #user_data = "${template_file.controller_cloud_init.rendered}"
+    connection {
+       user = "ubuntu"
+       private_key = "file("/home/ubuntu/.ssh/k8s.pem")" 
+    }
     provisioner "file" {
         source = "files"
         destination = "/tmp/stage"
-        connection {
-            user = "${var.ssh_user}"
-        }
     }
     provisioner "remote-exec" {
         inline = [
-          "sudo bash /tmp/stage/install_kube.sh",
-          "echo '----> Starting Kubernetes Controller'",
-          "sudo kubeadm init --token ${var.kubernetes_token}",
-          "echo '----> Installing Weave'",
-          "kubectl apply -f https://git.io/weave-kube"
+          "sudo bash /tmp/stage/set_hosts.sh",
+          "echo '----> Starting Kubernetes Controller with'",
+          "echo sudo kubeadm init --token ${var.kubernetes_token} --apiserver-advertise-address ${openstack_compute_instance_v2.controller.0.network.0.fixed_ip_v4}",
+          "sudo kubeadm init --token ${var.kubernetes_token} --apiserver-advertise-address ${openstack_compute_instance_v2.controller.0.network.0.fixed_ip_v4}",
+          "sudo rm -rf /tmp/stage"
         ]
-        connection {
-            user = "${var.ssh_user}"
-        }
     }
-    depends_on = [
-    ]
 }
+
 
 resource "openstack_compute_instance_v2" "compute" {
     name = "${var.cluster_name}-compute${count.index}"
     count = "${var.compute_count}"
-    image_name = "${var.kubernetes_image}"
-    flavor_name = "${var.kubernetes_flavor}"
-    #floating_ip = "${element(openstack_networking_floatingip_v2.compute.*.address, count.index)}"
-    key_pair = "${openstack_compute_keypair_v2.kubernetes.name}"
+    image_name = "${var.kubernetes_image_name}"
+    flavor_id = "${var.kubernetes_flavor_id}"
+    key_pair = "k8s"
     network {
-        name = "${var.network_name}"
+        uuid = "c8f3016f-c451-4aaa-915b-6704d2a6a97e"
     }
     security_groups = [
-        "${openstack_compute_secgroup_v2.kubernetes_base.name}",
-        "${openstack_compute_secgroup_v2.kubernetes_compute.name}"
+        "default",
+        "k8s"
     ]
+    connection {
+       user = "ubuntu"
+       private_key = "file("/home/ubuntu/.ssh/k8s.pem")" 
+    }
     provisioner "file" {
         source = "files"
         destination = "/tmp/stage"
-        connection {
-            user = "${var.ssh_user}"
-            bastion_host = "${openstack_networking_floatingip_v2.controller.0.address}"
-        }
     }
     provisioner "remote-exec" {
         inline = [
-          "sudo bash /tmp/stage/install_kube.sh",
-          "echo '----> Joining K8s Controller'",
-          "sudo kubeadm join --token ${var.kubernetes_token} ${openstack_compute_instance_v2.controller.0.network.0.fixed_ip_v4}"
+          "sudo bash /tmp/stage/set_hosts.sh",
+          "echo '----> Joining K8s Controller with'",
+          "echo sudo kubeadm join --token ${var.kubernetes_token} --discovery-token-unsafe-skip-ca-verification ${openstack_compute_instance_v2.controller.0.network.0.fixed_ip_v4}:6443"
+          "sudo kubeadm join --token ${var.kubernetes_token} --discovery-token-unsafe-skip-ca-verification ${openstack_compute_instance_v2.controller.0.network.0.fixed_ip_v4}:6443",
+          "sudo rm -rf /tmp/stage"
         ]
-        connection {
-            user = "${var.ssh_user}"
-            bastion_host = "${openstack_networking_floatingip_v2.controller.0.address}"
-        }
     }
     depends_on = [
         "openstack_compute_instance_v2.controller"
     ]
 }
 
-output "kubernetes-controller" {
-    value = "$ ssh -A ${var.ssh_user}@${openstack_networking_floatingip_v2.controller.0.address}"
-}
