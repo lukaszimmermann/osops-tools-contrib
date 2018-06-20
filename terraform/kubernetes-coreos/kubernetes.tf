@@ -25,10 +25,14 @@ resource "openstack_compute_instance_v2" "controller" {
           "echo '----> Starting Kubernetes Controller with'",
           "echo sudo kubeadm init --token ${var.kubernetes_token} --apiserver-advertise-address ${openstack_compute_instance_v2.controller.0.network.0.fixed_ip_v4}",
           "sudo kubeadm init --token ${var.kubernetes_token} --apiserver-advertise-address ${openstack_compute_instance_v2.controller.0.network.0.fixed_ip_v4}",
+          "mkdir -p /home/ubuntu/.kube",
+          "sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config",
+          "sudo chown ubuntu:ubuntu /home/ubuntu/.kube/config",
           "sudo rm -rf /tmp/stage"
         ]
     }
 }
+
 
 
 resource "openstack_compute_instance_v2" "compute" {
